@@ -6,9 +6,10 @@ import importlib
 # Ajouter le chemin absolu vers le fichier Svg.py
 sys.path.append("/home/neim/projects/krita-vector-interpolation/lib")  # Remplacer par le chemin absolu correct
 import Svg  # Importer le fichier Svg.py
+import Ui
 importlib.reload(Svg)
+importlib.reload(Ui)
 
-steps = 7
 
 # Récupérer l'instance de Krita et le document actif
 app = Krita.instance()
@@ -28,22 +29,24 @@ if doc:
 
         # Vérifier qu'on a exactement deux formes sélectionnées
         if len(selected_shapes) == 2:
-            # Interpolate paths
-            interpolated = svg.interpolate(selected_shapes[0][0], selected_shapes[1][0], steps)
-            print(interpolated.toString())
+            dialog = Ui.InterpolationDialog()
+            if dialog.exec_():
+                steps = dialog.get_steps()
+                print(f"Interpolation steps: {steps}")
+                # Interpolate paths
+                interpolated = svg.interpolate(selected_shapes[0][0], selected_shapes[1][0], steps)
 
-            # Add & select generated svg into layer
-            shapes = layer.addShapesFromSvg(interpolated.toString())
-            selected_shapes[0][1].deselect()
-            selected_shapes[1][1].deselect()
-            for shape in shapes:
-                shape.select()
+                # Add & select generated svg into layer
+                shapes = layer.addShapesFromSvg(interpolated.toString())
+                selected_shapes[0][1].deselect()
+                selected_shapes[1][1].deselect()
+                for shape in shapes:
+                    shape.select()
 
-
-            print(f"{len(shapes)} chemins interpolés créés.")
+                print(f"{len(shapes)} chemins interpolés créés.")
         else:
-            print("Sélectionnez exactement deux formes vectorielles.")
+            Ui.ErrorDialog("Sélectionnez exactement deux formes vectorielles.").exec_()
     else:
-        print("Le calque actif n'est pas un calque vectoriel.")
+        Ui.ErrorDialog("Le calque actif n'est pas un calque vectoriel.").exec_()
 else:
-    print("Aucun document actif trouvé.")
+    Ui.ErrorDialog("Aucun document actif trouvé.").exec_()
