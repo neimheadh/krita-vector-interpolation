@@ -26,27 +26,22 @@ class Attribute:
             Clone command
         """
 
-        def __init__(self, s):
+        def __init__(self, s = None):
             """
             Parameters
             ----------
             s: unqique d attribute command string
             """
-
-            self.operation = re.search(r'[M|L|H|V|C|S|Q|T|A|Z]', s)[0]
-            values = re.findall(r'[0-9\.-]+', s)
-            
+            self.operation = None
             self.values = []
-            for v in values:
-                self.values.append(float(v))
 
-        def clone(self):
-            """ Clone path command """
-            new = self.__class__()
-            new.operation = self.operation
-            new.values = self.values
-
-            return new
+            if s:
+                self.operation = re.search(r'[M|L|H|V|C|S|Q|T|A|Z]', s)[0]
+                values = re.findall(r'[0-9\.-]+', s)
+                
+                self.values = []
+                for v in values:
+                    self.values.append(float(v))
 
         def toString(self):
             s = self.operation
@@ -61,19 +56,22 @@ class Attribute:
         """ 
         Transform attributes
         """
-        def __init__(self, s):
+        def __init__(self, s = None):
             """
             Paremeters
             ==========
             s : string
                Transform attribute value
             """
-            m = re.search(r'^\s*([a-zA-Z_][a-zA-Z0-9_]*)\(?([^\)]*)\)?', s)
-            self.operation = m[1]
+            self.operation = None
             self.values = []
-            if m[2]:
-                for v in re.findall(r'[0-9\.-]+', m[2]):
-                    self.values.append(float(v))
+
+            if s:
+                m = re.search(r'^\s*([a-zA-Z_][a-zA-Z0-9_]*)\(?([^\)]*)\)?', s)
+                self.operation = m[1]
+                if m[2]:
+                    for v in re.findall(r'[0-9\.-]+', m[2]):
+                        self.values.append(float(v))
         
         def clone(self):
             """Clone transform operation"""
@@ -110,7 +108,7 @@ class Attribute:
             if len(transform.values) > len(values):
                 l = len(values)
                 for i in range(len(transform.values) - l):
-                    values.append([0.0, transform[values].values[i + l]])
+                    values.append([0.0, transform.values[i + l]])
             
             intp.values = []
             for v in values:
@@ -143,8 +141,6 @@ class Node:
 
         Attributes
         ----------
-        parent: object
-            Node parent.
         el: ET.Element
             DOM element.
         transform: Attribute.Transform[]
@@ -160,16 +156,13 @@ class Node:
             Transform into string.
         """
 
-        def __init__(self, parent, s):
+        def __init__(self, s):
             """
             Parameters
             ----------
-            parent : object
-                Node parent
             s : string|ET.Element
                 Node xml representation or element
             """
-            self.parent = parent
             self.el = s if type(s) == ET.Element else ET.fromstring(s)
 
             self.transform = []
@@ -228,7 +221,7 @@ class Node:
 
         def clone(self):
             """ Clone node """
-            new = self.__class__(self.parent, ET.tostring(self.el))
+            new = self.__class__(ET.tostring(self.el))
             return new
         
         def interpolate(self, node, steps):
@@ -326,19 +319,16 @@ class Node:
             Parse values.
         """
 
-        def __init__(self, parent, s):
+        def __init__(self, s):
             """
             Parameters
             ----------
-            parent : object
-                Node parent
             s : string|ET.Element
                 Node xml representation or element
             """
-            super().__init__(parent, s)
+            super().__init__(s)
 
             # Parse values
-            self.values = []
             d = self.el.attrib['d'] if self.el.attrib.get('d') else ''
             commands = re.findall(r"[M|L|H|V|C|S|Q|T|A|Z][0-9-\.\s]*", d)
             self.commands = []
@@ -447,9 +437,9 @@ class Svg:
             # Search in children list ignoring namespaves
             for child in self.el:
                 if re.search(r'{?[^}]*}?path', child.tag):
-                    self.children.append(Node.Path(self, child))
+                    self.children.append(Node.Path(child))
                 else:
-                    self.children.append(Node.Node(self, child))
+                    self.children.append(Node.Node(child))
     
     def clone(self):
         """ Clone svg object """
@@ -459,6 +449,13 @@ class Svg:
         new.el.attrib = self.el.attrib
 
         return new
+    
+    def getXmlns(self):
+        """ Return xmlns list object """
+        xmlns = {}
+        for x in self.xmlns:
+            xmlns[x[1]] = x[0]
+        return xmlns
     
     def interpolate(self, node1, node2, steps, new = True):
         """
@@ -502,16 +499,15 @@ class Svg:
                     node2 = node
                     break
 
-        # Check if nodes can be interpolate
-        if not node1.canInterpolate(node2):
+        # Interpolate & add interpolated nodes
+        try:
+            intp = node1.interpolate(node2, steps)
+        except RuntimeError:
             raise RuntimeError(
                 'Nodes are not compatible for interpolation' + "\n\n" +
                 'node 1 : ' + node1.toString() + "\n"
                 'node 2 : ' + node2.toString()
-                )
-
-        # Interpolate & add interpolated nodes
-        intp = node1.interpolate(node2, steps)
+            )
         
         for node in intp:
             svg.children.append(node)
@@ -523,10 +519,10 @@ class Svg:
         s = '<svg'
 
         # Load xmlns
-        xmlns = {}
-        for x in self.xmlns:
-            xmlns[x[1]] = x[0]
-            s += f' xmlns{':' if x[0] else ''}{x[0]}="{x[1]}"'
+        xmlns = self.getXmlns()
+        for url in xmlns:
+            ns = xmlns[url]
+            s += f' xmlns{':' if ns else ''}{ns}="{url}"'
 
         # Load attributes
         for a  in self.el.attrib:
@@ -537,7 +533,7 @@ class Svg:
             s += '>'
             for child in self.children:
                 s += f"\n\t{child.toString(xmlns)}"
-            s += '</svg>'
+            s += "\n</svg>"
         else:
             s += ' />'
 
