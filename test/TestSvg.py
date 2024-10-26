@@ -201,6 +201,23 @@ class TestSvg(unittest.TestCase):
         self.assertEqual(intp.children[0].transform[0].values[0], 100, 'Interpolated transform first value should be 100')
         self.assertEqual(intp.children[0].transform[0].values[1], 25, 'Interpolated transform second value should be 25')
 
+    def test_face(self):
+        """Test test_face.svg interpolations"""
+        f = open(os.path.dirname(os.path.realpath(__file__)) + '/assets/test_face.svg', 'r')
+        svg = f.read()
+        f.close()
+        parser = Svg.Svg(svg)
+
+        # Test interpolate 1/4 face left eye to full face left eye
+        intp = parser.interpolate("shape2", "shape3", 1)
+        self.assertEqual(intp.children[0].transform[0].operation, 'matrix', 'Interpolation transform should be a matrix')
+        self.assertEqual(intp.children[0].transform[0].values, [1.1636557947061799, 0.0, 0.0, 0.993835549478444, 841.2003324608875, 585.2269691975885], 'Interpolation transform matrix values incorrect')
+
+        # Should be the same when we reverse inputs
+        intp = parser.interpolate("shape3", "shape2", 1)
+        self.assertEqual(intp.children[0].transform[0].operation, 'matrix', 'Interpolation transform should be a matrix')
+        self.assertEqual(intp.children[0].transform[0].values, [1.1636557947061799, 0.0, 0.0, 0.993835549478444, 841.2003324608875, 585.2269691975885], 'Interpolation transform matrix values incorrect')
+
 
 if __name__ == '__main__':
     unittest.main()

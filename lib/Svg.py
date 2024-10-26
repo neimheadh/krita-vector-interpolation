@@ -76,7 +76,10 @@ class Attribute:
         def clone(self):
             """Clone transform operation"""
             new = self.__class__(self.operation)
-            new.values = self.values
+            new.values = []
+            
+            for v in self.values:
+                new.values.append(v)
 
             return new
         
@@ -84,21 +87,29 @@ class Attribute:
             """
             Get interpolated transform
 
-            Paramters
+            Parameters
             =========
             transform : Transform
                 Interpolation final transform
             p: float
                 Interpolation factor
             """
-            intp = self.clone()
+            # Handle different operation
+            t1 = self
+            t2 = transform
+
+            if t1.operation == 'translate' and t2.operation == 'matrix':
+                t1 = self.translateToMatrix(t1)
+            elif t1.operation == 'matrix' and t2.operation == 'translate':
+                t2 = self.translateToMatrix(t2)
+            if t1.operation != t2.operation:
+                raise RuntimeError('Cannot interpolate a different transform operation')
 
             # Load transform values
             values = []
-            for i in range(len(intp.values)):
-                v1 = intp.values[i]
+            for i, v1 in enumerate(t1.values):
                 try:
-                    v2 = transform.values[i]
+                    v2 = t2.values[i]
                 except IndexError:
                     v2 = 0.0
 
@@ -110,6 +121,7 @@ class Attribute:
                 for i in range(len(transform.values) - l):
                     values.append([0.0, transform.values[i + l]])
             
+            intp = t1.clone()
             intp.values = []
             for v in values:
                 intp.values.append((v[1] - v[0]) * p + v[0])
@@ -125,6 +137,26 @@ class Attribute:
             s += ')'
 
             return s
+        
+        def translateToMatrix(self, trans):
+            """
+            Transform a translate transform into a matrix transform
+
+            Parameters
+            ----------
+            trans: Transform
+              Translate operation
+            """
+            if trans.operation == 'translate':
+                matrix = self.__class__()
+                matrix.operation = 'matrix'
+                matrix.values = [1, 0, 0, 1]
+                matrix.values.append(trans.values[0] if len(trans.values) > 0 else 0)
+                matrix.values.append(trans.values[1] if len(trans.values) > 1 else 0)
+
+                return matrix
+
+            return trans
 
 # Node namespace
 class Node:
@@ -186,25 +218,31 @@ class Node:
                 Interpolation multiplier
             """
 
+            if len(self.transform) > 1 or len(node.transform) > 1:
+                raise RuntimeError('Interpolation can only manage a maximum of one transform')
+
             # Copy current node
             new = self.clone()
 
-            # Build list of transforms
-            transforms = {}
-            for t in self.transform:
-                transforms[t.operation] = [t, t.__class__(t.operation + '()')]
-            
-            for t in node.transform:
-                try:
-                    transforms[t.operation][1] = t
-                except KeyError:
-                    transforms[t.operation] = [t.__class__(t.operation + '()'), t]
-            
+            # Get transforms. Handle case one of node has no transform and the other does
+            transforms = []
+            if len(self.transform) == len(node.transform):
+                transforms += self.transform
+                transforms += node.transform
+            else:
+                if len(self.transform) < len(node.transform):
+                    transforms.append(node.transform[0].clone())
+                    transforms.append(node.transform[0])
+                    for i, _ in enumerate(transforms[0].values):
+                        transforms[0].values[i] = 0.0
+                if len(node.transform) < len(self.transform):
+                    transforms.append(self.transform[0])
+                    transforms.append(self.transform[0].clone())
+                    for i, _ in enumerate(transforms[1].values):
+                        transforms[1].values[i] = 0.0
             # Change transforms to interpolated
-            new.transform = []
-            for t in transforms:
-                transform = transforms[t][0].interpolated(transforms[t][1], p)
-                new.transform.append(transform)
+            if len(transforms):
+                new.transform = [transforms[0].interpolated(transforms[1], p)]
 
             return new
 
