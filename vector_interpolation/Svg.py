@@ -495,7 +495,7 @@ class Svg:
             xmlns[x[1]] = x[0]
         return xmlns
     
-    def interpolate(self, node1, node2, steps, new = True):
+    def interpolate(self, node1, node2, steps, new = True, debug = False):
         """
         Generate nodes interpolation, into current Svg object
         or into a new one.
@@ -510,6 +510,8 @@ class Svg:
             Number of interpolations
         new: bool
             If False, generate interpolations in current object
+        debug: bool
+            If True, raise verbose errors.
         """
 
         # Get destination Svg
@@ -538,14 +540,17 @@ class Svg:
                     break
 
         # Interpolate & add interpolated nodes
-        try:
+        if debug:
+            try:
+                intp = node1.interpolate(node2, steps)
+            except RuntimeError:
+                raise RuntimeError(
+                    'Nodes are not compatible for interpolation' + "\n\n" +
+                    'node 1 : ' + node1.toString() + "\n"
+                    'node 2 : ' + node2.toString()
+                )
+        else:
             intp = node1.interpolate(node2, steps)
-        except RuntimeError:
-            raise RuntimeError(
-                'Nodes are not compatible for interpolation' + "\n\n" +
-                'node 1 : ' + node1.toString() + "\n"
-                'node 2 : ' + node2.toString()
-            )
         
         for node in intp:
             svg.children.append(node)

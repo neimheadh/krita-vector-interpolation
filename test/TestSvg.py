@@ -1,5 +1,5 @@
 import sys
-sys.path.append('./lib')
+sys.path.append('./vector_interpolation')
 
 import Svg
 import os
@@ -135,7 +135,7 @@ class TestSvg(unittest.TestCase):
 
         err = False
         try:
-            parser.interpolate(1, 2, 2)
+            parser.interpolate(1, 2, 2, debug= True)
         except RuntimeError as e:
             err = e
         self.assertEqual(type(err), RuntimeError, 'Runtime error should be thrown')
@@ -150,7 +150,7 @@ class TestSvg(unittest.TestCase):
 
         err = False
         try:
-            parser.interpolate(1, 2, 2)
+            parser.interpolate(1, 2, 2, debug= True)
         except RuntimeError as e:
             err = e
         self.assertEqual(type(err), RuntimeError, 'Runtime error should be thrown')
@@ -165,7 +165,7 @@ class TestSvg(unittest.TestCase):
 
         err = False
         try:
-            parser.interpolate(1,0, 2)
+            parser.interpolate(1, 0, 2, debug= True)
         except RuntimeError as e:
             err = e
         self.assertEqual(type(err), RuntimeError, 'Runtime error should be thrown')
